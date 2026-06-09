@@ -115,6 +115,7 @@ class HIMEstimator(nn.Module):
 
         return estimation_loss.item(), swap_loss.item()
 
+# 这个 sinkhorn 函数是一个Sinkhorn-Knopp 算法的实现，用于将一个输入矩阵 out 归一化为双重标准化矩阵（行列分别归一），常用于 soft assignment（软聚类）、optimal transport（最优传输） 和 自监督学习中的对比学习对齐（如 SwAV）。
 
 @torch.no_grad()
 def sinkhorn(out, eps=0.05, iters=3):
