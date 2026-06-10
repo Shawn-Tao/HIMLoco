@@ -243,7 +243,7 @@ def main():
     assert os.path.exists(urdf_path), f"URDF not found: {urdf_path}"
 
     asset_options = gymapi.AssetOptions()
-    asset_options.default_dof_drive_mode = gymapi.DOF_MODE_EFFORT
+    asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
     asset_options.collapse_fixed_joints = True
     asset_options.replace_cylinder_with_capsule = True
     asset_options.flip_visual_attachments = True
@@ -287,14 +287,18 @@ def main():
     gym.set_actor_dof_properties(env_handle, actor_handle, dof_props)
 
     # 设置默认关节角度 (站立姿态)
-    default_angles = np.array([
+    num_dofs = gym.get_asset_dof_count(robot_asset)
+    dof_states = gym.get_actor_dof_states(env_handle, actor_handle, gymapi.STATE_ALL)
+    # dof_states 是结构体数组，字段为 'pos' 和 'vel'
+    default_angles = [
         0.1, 0.8, -1.5,    # FL: hip, thigh, calf
         -0.1, 0.8, -1.5,   # FR
         0.1, 1.0, -1.5,    # RL
         -0.1, 1.0, -1.5,   # RR
-    ], dtype=np.float32)
-    dof_states = np.zeros(len(default_angles) * 2, dtype=np.float32)
-    dof_states[::2] = default_angles  # 位置
+    ]
+    for j in range(min(num_dofs, len(default_angles))):
+        dof_states['pos'][j] = default_angles[j]
+        dof_states['vel'][j] = 0.0
     gym.set_actor_dof_states(env_handle, actor_handle, dof_states, gymapi.STATE_ALL)
 
     # ============================================================
