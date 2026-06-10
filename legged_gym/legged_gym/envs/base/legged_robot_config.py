@@ -90,6 +90,30 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel_yaw = [-3.14, 3.14]    # min max [rad/s]
             heading = [-3.14, 3.14]
 
+    class depth:
+        """深度相机配置 (蒸馏训练时使用)"""
+        use_camera = False                       # 默认关闭 (教师训练不需要)
+        original = (106, 60)                     # 仿真相机分辨率
+        # 裁剪参数
+        crop_top = 0
+        crop_bottom = 2
+        crop_left = 4
+        crop_right = 4
+        # 相机参数
+        horizontal_fov = 87                      # D435i HFOV
+        buffer_len = 2                           # 帧堆叠数
+        update_interval = 5                      # 更新间隔 (控制步数)
+        # 深度范围
+        near_clip = 0.0
+        far_clip = 2.0
+        # 域随机化
+        dis_noise = 0.0                          # 深度噪声 (蒸馏时 >0)
+        # 相机安装 (Go2)
+        position = [0.30, 0.0, 0.35]             # x, y, z (米)
+        angle = [-3, 3]                          # 下倾角范围 (度)
+        scale = 1
+        invert = True
+
     class init_state:
         pos = [0.0, 0.0, 1.] # x,y,z [m]
         rot = [0.0, 0.0, 0.0, 1.0] # x,y,z,w [quat]
