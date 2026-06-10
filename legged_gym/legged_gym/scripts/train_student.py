@@ -38,7 +38,8 @@ import torch
 from depth_fm.modules.him_distill_model import HIMDistillModel
 from depth_fm.algorithms.fm_distillation import FMDistillation
 from depth_fm.runners.distill_runner import DistillRunner
-from depth_fm.configs.go2_distill_config import DistillModelCfg, GO2DistillCfg
+from depth_fm.configs.go2_distill_config import DistillModelCfg
+from depth_fm.envs.camera_patch import patch_depth_camera
 
 
 def train_student(args, headless=True):
@@ -50,7 +51,15 @@ def train_student(args, headless=True):
     args.headless = headless
     student_cfg = DistillModelCfg()
 
-    log_dir = f"./logs/go2_distill"
+    # 解析教师路径 (相对于 HIMLoco root 如有必要)
+    teacher_path = student_cfg.teacher_ckpt_path
+    if not os.path.isabs(teacher_path):
+        teacher_path = os.path.join(HIMLOCO_ROOT, teacher_path)
+    if not os.path.exists(teacher_path):
+        print(f"[Student] ⚠ 教师权重未找到: {teacher_path}")
+        print(f"[Student] 请先运行 train_teacher.py 完成 Phase 1")
+
+    log_dir = os.path.join(HIMLOCO_ROOT, 'logs', 'go2_distill')
     os.makedirs(log_dir, exist_ok=True)
 
     print("=" * 60)
@@ -66,9 +75,10 @@ def train_student(args, headless=True):
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     _, train_cfg = task_registry.get_cfgs(args.task)
 
-    # 激活深度相机
+    # 激活深度相机 (打补丁)
     if hasattr(env.cfg, 'depth'):
         env.cfg.depth.use_camera = True
+    env = patch_depth_camera(env)
 
     print(f"\n[Student] Env created: {env.num_envs} envs")
 
@@ -78,7 +88,7 @@ def train_student(args, headless=True):
     device = env.device if hasattr(env, 'device') else 'cuda:0'
 
     distill_model = HIMDistillModel(
-        teacher_ckpt_path=student_cfg.teacher_ckpt_path,
+        teacher_ckpt_path=teacher_path,
         num_actor_obs=student_cfg.num_actor_obs,
         num_critic_obs=student_cfg.num_critic_obs,
         num_one_step_obs=student_cfg.num_one_step_obs,

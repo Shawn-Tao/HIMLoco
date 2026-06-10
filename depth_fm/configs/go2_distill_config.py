@@ -120,7 +120,8 @@ class DistillModelCfg:
     """蒸馏模型架构超参数"""
 
     # Teacher
-    teacher_ckpt_path = './logs/rough_go2/model_final.pt'  # Phase 1 训练的教师权重
+    # Phase 1 训练的输出 (相对于 HIMLoco 根目录)
+    teacher_ckpt_path = 'logs/rough_go2/model_final.pt'
 
     # HIM
     num_actor_obs = 270
