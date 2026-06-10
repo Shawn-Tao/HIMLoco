@@ -51,11 +51,20 @@ def train_student(args, headless=True):
     args.headless = headless
     student_cfg = DistillModelCfg()
 
-    # 解析教师路径 (相对于 HIMLoco root 如有必要)
+    # 解析教师路径 (HIMLoco 保存为 model_{iter}.pt，自动找最新的)
     teacher_path = student_cfg.teacher_ckpt_path
     if not os.path.isabs(teacher_path):
         teacher_path = os.path.join(HIMLOCO_ROOT, teacher_path)
-    if not os.path.exists(teacher_path):
+    # 如果路径是一个目录 (logs/rough_go2/)，自动找最新 model_*.pt
+    if os.path.isdir(teacher_path):
+        model_files = sorted([
+            f for f in os.listdir(teacher_path)
+            if f.startswith('model_') and f.endswith('.pt')
+        ])
+        if model_files:
+            teacher_path = os.path.join(teacher_path, model_files[-1])
+            print(f"[Student] 自动选择最新教师: {model_files[-1]}")
+    if not os.path.isfile(teacher_path):
         print(f"[Student] ⚠ 教师权重未找到: {teacher_path}")
         print(f"[Student] 请先运行 train_teacher.py 完成 Phase 1")
 

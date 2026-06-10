@@ -102,7 +102,7 @@ class GO2DistillCfgPPO(GO2RoughCfgPPO):
     class runner:
         policy_class_name = 'HIMDistillModel'
         algorithm_class_name = 'FMDistillation'
-        num_steps_per_env = 100
+        num_steps_per_env = 24    # 蒸馏用短 rollout (100 会导致深度 buffer OOM)
         max_iterations = 20000
 
         experiment_name = 'go2_distill'
@@ -121,7 +121,7 @@ class DistillModelCfg:
 
     # Teacher
     # Phase 1 训练的输出 (相对于 HIMLoco 根目录)
-    teacher_ckpt_path = 'logs/rough_go2/model_final.pt'
+    teacher_ckpt_path = 'logs/rough_go2'  # 目录，自动找最新的 model_*.pt
 
     # HIM
     num_actor_obs = 270
