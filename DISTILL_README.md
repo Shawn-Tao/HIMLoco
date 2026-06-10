@@ -178,10 +178,7 @@ tensorboard --logdir=./logs/go2_distill/
 ## 文件索引
 
 ```
-HIMLoco/
-├── test_depth_camera.py             # 深度相机渲染测试 Demo
-├── DISTILL_README.md                # 本文档
-├── depth_fm/
+depth_fm/
 ├── modules/
 │   ├── scandot_encoder.py          # 教师特权地形编码器
 │   ├── depth_encoder.py            # 学生深度图编码器
