@@ -58,3 +58,5 @@ runs
 # other
 *.egg-info
 __pycache__
+
+depth_test_output
