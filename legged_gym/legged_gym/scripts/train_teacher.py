@@ -43,7 +43,7 @@ def train(args, headless=True):
          (包括 HIMEstimator, Actor, Critic 所有权重)
     """
     args.headless = headless
-    args.resume = False
+    # args.resume 由命令行控制，不在此覆盖
 
     print("=" * 60)
     print(f"[Teacher Training] Task: {args.task}")
