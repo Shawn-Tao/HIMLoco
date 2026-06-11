@@ -42,13 +42,20 @@ from depth_fm.configs.go2_distill_config import DistillModelCfg
 from depth_fm.envs.camera_patch import patch_depth_camera
 
 
-def train_student(args, headless=True):
-    """学生蒸馏训练主函数"""
+def train_student(args, show_sim=False, show_depth=False):
+    """学生蒸馏训练主函数
+
+    Args:
+        show_sim:   显示 Isaac Gym 仿真 viewer (3D 机器人+地形，默认关闭)
+        show_depth: 显示深度图 OpenCV 窗口 (默认关闭)
+    """
 
     # ================================================================
     # 配置
     # ================================================================
-    args.headless = headless
+    # 深度相机需要图形上下文 → headless 必须为 False
+    # 但不弹仿真 viewer 窗口（除非 --show_sim），仅 GPU 离屏渲染
+    args.headless = False
     student_cfg = DistillModelCfg()
 
     # 解析教师路径: 优先 CLI > 自动搜索 config 目录
@@ -85,15 +92,21 @@ def train_student(args, headless=True):
     print("=" * 60)
 
     # ================================================================
-    # 1. 创建环境（自带深度相机）
+    # 1. 创建环境（带深度相机，但关闭仿真 viewer）
     # ================================================================
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     _, train_cfg = task_registry.get_cfgs(args.task)
 
+    # 仿真 viewer: --show_sim 时保留，否则销毁（保留图形上下文给深度相机）
+    if not show_sim and env.viewer is not None:
+        env.gym.destroy_viewer(env.viewer)
+        env.viewer = None
+        print("[Student] 仿真 viewer 已关闭 (--show_sim 可开启)")
+
     # 激活深度相机 (打补丁)
     if hasattr(env.cfg, 'depth'):
         env.cfg.depth.use_camera = True
-    env = patch_depth_camera(env)
+    env = patch_depth_camera(env, show_depth=show_depth)
 
     print(f"\n[Student] Env created: {env.num_envs} envs")
 
@@ -176,13 +189,16 @@ def train_student(args, headless=True):
 
 
 if __name__ == '__main__':
-    # 先提取 --teacher_path (get_args 不认识的参数)
     import argparse as _ap
     _parser = _ap.ArgumentParser()
     _parser.add_argument('--teacher_path', type=str, default=None)
+    _parser.add_argument('--show_sim', action='store_true',
+                         help='显示 Isaac Gym 仿真 viewer (3D 机器人+地形)')
+    _parser.add_argument('--show_depth', action='store_true',
+                         help='显示深度图 OpenCV 窗口')
     _my_args, _remaining = _parser.parse_known_args()
 
     sys.argv = [sys.argv[0]] + _remaining
     args = get_args()
     args.teacher_path = _my_args.teacher_path
-    train_student(args, headless=True)
+    train_student(args, show_sim=_my_args.show_sim, show_depth=_my_args.show_depth)

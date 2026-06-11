@@ -69,17 +69,31 @@ python train_teacher.py --task=go2 --headless
 ### Step 2: Phase 2 — 蒸馏学生
 
 ```bash
-# 自动搜索最新教师 checkpoint (logs/rough_go2/ 下递归查找 model_*.pt)
-python train_student.py --task=go2 --headless
+# 正常训练 (无 GUI，相机离屏渲染)
+python train_student.py --task=go2
 
-# 手动指定教师权重
-python train_student.py --task=go2 --headless \
-    --teacher_path logs/rough_go2/Jun10_21-51-33_/model_5000.pt
-
-# 指定 GPU
-python train_student.py --task=go2 --headless \
+# 手动指定教师权重 + 指定 GPU
+python train_student.py --task=go2 \
+    --teacher_path logs/rough_go2/Jun10_21-51-33_/model_5000.pt \
     --rl_device cuda:1 --sim_device cuda:1
+
+# 调试模式: 显示仿真 viewer (3D 机器人+地形)
+python train_student.py --task=go2 --show_sim
+
+# 调试模式: 显示深度图 OpenCV 窗口
+python train_student.py --task=go2 --show_depth
+
+# 全部显示 (调试用)
+python train_student.py --task=go2 --show_sim --show_depth
 ```
+
+**显示选项**:
+
+| 标志 | 作用 | 正常训练 |
+|------|------|:---:|
+| (默认) | 无 GUI，GPU 离屏渲染 | ✅ |
+| `--show_sim` | Isaac Gym 3D 仿真 viewer | ❌ 吃 GPU |
+| `--show_depth` | OpenCV 深度图窗口 | ❌ 吃 GPU |
 
 **教师权重查找逻辑**:
 1. `--teacher_path` CLI 参数优先

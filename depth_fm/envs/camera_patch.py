@@ -13,7 +13,7 @@ import numpy as np
 from isaacgym import gymapi, gymtorch
 
 
-def patch_depth_camera(env):
+def patch_depth_camera(env, show_depth=False):
     """
     给 env 附加深度相机功能。
 
@@ -24,12 +24,17 @@ def patch_depth_camera(env):
       - env.update_depth_buffer()  渲染 + 更新 buffer
       - env.extras["depth"]        当前可用的 2 帧深度图
 
+    Args:
+        show_depth: True 时每 update_interval 步弹 OpenCV 窗口显示深度图
+
     调用后需设置 env.cfg.depth.use_camera = True
     """
     cfg = env.cfg
 
     if not hasattr(cfg, 'depth') or not cfg.depth.use_camera:
         return env
+
+    env._show_depth = show_depth
 
     depth_cfg = cfg.depth
     env._depth_cfg = depth_cfg
@@ -106,6 +111,17 @@ def patch_depth_camera(env):
                 )
 
         env.gym.end_access_image_tensors(env.sim)
+
+        # 调试: 显示首 env 的深度图
+        if env._show_depth:
+            try:
+                import cv2
+                vis = env.depth_buffer[0, -1].cpu().numpy()  # 首 env 最新帧
+                vis = ((vis + 0.5) * 255).clip(0, 255).astype('uint8')
+                cv2.imshow("Depth Camera [env 0]", vis)
+                cv2.waitKey(1)
+            except Exception:
+                pass
 
     env._update_depth_buffer = update_depth_buffer
 
