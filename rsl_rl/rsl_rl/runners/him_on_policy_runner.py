@@ -218,12 +218,14 @@ class HIMOnPolicyRunner:
                         #   f"""{'Mean episode length/episode:':>{pad}} {locs['mean_trajectory_length']:.2f}\n""")
 
         log_string += ep_string
+        # ETA: 用 tot_iter 避免 resume 时出现负数
+        remaining = max(0, locs['tot_iter'] - locs['it'] - 1)
+        avg_time = self.tot_time / max(1, locs['it'] + 1)
         log_string += (f"""{'-' * width}\n"""
                        f"""{'Total timesteps:':>{pad}} {self.tot_timesteps}\n"""
                        f"""{'Iteration time:':>{pad}} {iteration_time:.2f}s\n"""
                        f"""{'Total time:':>{pad}} {self.tot_time:.2f}s\n"""
-                       f"""{'ETA:':>{pad}} {self.tot_time / (locs['it'] + 1) * (
-                               locs['num_learning_iterations'] - locs['it']):.1f}s\n""")
+                       f"""{'ETA:':>{pad}} {avg_time * remaining:.1f}s\n""")
         print(log_string)
 
     def save(self, path, infos=None):

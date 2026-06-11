@@ -51,22 +51,28 @@ def train_student(args, headless=True):
     args.headless = headless
     student_cfg = DistillModelCfg()
 
-    # 解析教师路径 (HIMLoco 保存为 model_{iter}.pt，自动找最新的)
-    teacher_path = student_cfg.teacher_ckpt_path
-    if not os.path.isabs(teacher_path):
-        teacher_path = os.path.join(HIMLOCO_ROOT, teacher_path)
-    # 如果路径是一个目录 (logs/rough_go2/)，自动找最新 model_*.pt
-    if os.path.isdir(teacher_path):
-        model_files = sorted([
-            f for f in os.listdir(teacher_path)
-            if f.startswith('model_') and f.endswith('.pt')
-        ])
+    # 解析教师路径: 优先 CLI > 自动搜索 config 目录
+    if getattr(args, 'teacher_path', None):
+        teacher_path = args.teacher_path
+        if not os.path.isabs(teacher_path):
+            teacher_path = os.path.join(HIMLOCO_ROOT, teacher_path)
+        print(f"[Student] 手动指定教师: {teacher_path}")
+    else:
+        teacher_root = student_cfg.teacher_ckpt_path
+        if not os.path.isabs(teacher_root):
+            teacher_root = os.path.join(HIMLOCO_ROOT, teacher_root)
+        model_files = []
+        for r, _, fs in os.walk(teacher_root):
+            for f in fs:
+                if f.startswith('model_') and f.endswith('.pt'):
+                    model_files.append(os.path.join(r, f))
         if model_files:
-            teacher_path = os.path.join(teacher_path, model_files[-1])
-            print(f"[Student] 自动选择最新教师: {model_files[-1]}")
-    if not os.path.isfile(teacher_path):
-        print(f"[Student] ⚠ 教师权重未找到: {teacher_path}")
-        print(f"[Student] 请先运行 train_teacher.py 完成 Phase 1")
+            teacher_path = sorted(model_files)[-1]
+            print(f"[Student] 自动选择最新教师: {os.path.relpath(teacher_path, HIMLOCO_ROOT)}")
+        else:
+            print(f"[Student] ⚠ 在 {teacher_root} 下未找到 model_*.pt")
+            print(f"[Student] 请先运行 train_teacher.py 或 --teacher_path 手动指定")
+            return
 
     log_dir = os.path.join(HIMLOCO_ROOT, 'logs', 'go2_distill')
     os.makedirs(log_dir, exist_ok=True)
@@ -170,5 +176,13 @@ def train_student(args, headless=True):
 
 
 if __name__ == '__main__':
+    # 先提取 --teacher_path (get_args 不认识的参数)
+    import argparse as _ap
+    _parser = _ap.ArgumentParser()
+    _parser.add_argument('--teacher_path', type=str, default=None)
+    _my_args, _remaining = _parser.parse_known_args()
+
+    sys.argv = [sys.argv[0]] + _remaining
     args = get_args()
+    args.teacher_path = _my_args.teacher_path
     train_student(args, headless=True)

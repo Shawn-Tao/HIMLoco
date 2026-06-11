@@ -69,13 +69,22 @@ python train_teacher.py --task=go2 --headless
 ### Step 2: Phase 2 — 蒸馏学生
 
 ```bash
-# 确认教师权重路径
-# 检查 depth_fm/configs/go2_distill_config.py 第 25 行:
-#   teacher_ckpt_path = './logs/rough_go2/model_final.pt'
-
-# 开始蒸馏训练
+# 自动搜索最新教师 checkpoint (logs/rough_go2/ 下递归查找 model_*.pt)
 python train_student.py --task=go2 --headless
+
+# 手动指定教师权重
+python train_student.py --task=go2 --headless \
+    --teacher_path logs/rough_go2/Jun10_21-51-33_/model_5000.pt
+
+# 指定 GPU
+python train_student.py --task=go2 --headless \
+    --rl_device cuda:1 --sim_device cuda:1
 ```
+
+**教师权重查找逻辑**:
+1. `--teacher_path` CLI 参数优先
+2. 否则递归搜索 `depth_fm/configs/go2_distill_config.py` 中 `teacher_ckpt_path` 目录
+3. 自动选 `model_*.pt` 中迭代数最大的
 
 **输入**: 本体感知 (270维) + 深度图 (2×58×98)
 **输出**: `./logs/go2_distill/student_final.pt`

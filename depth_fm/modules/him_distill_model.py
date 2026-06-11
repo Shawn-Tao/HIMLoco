@@ -20,7 +20,7 @@ HIM Distillation Model: 教师(冻结) → 学生(可训练) 蒸馏框架。
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 
 from rsl_rl.modules.him_actor_critic import HIMActorCritic
 from rsl_rl.modules.him_estimator import HIMEstimator
@@ -236,24 +236,23 @@ class HIMDistillModel(nn.Module):
         self,
         obs_history: torch.Tensor,       # [B, 270]
         depth_images: torch.Tensor,      # [B, 2, 58, 98]
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         构造学生 FM 扩散策略的条件向量。
 
         condition = [obs_current(45) | him_vel(3) | him_latent(16) | depth_latent(32)]
                   = [B, 96]
+
+        Returns:
+            condition:    [B, 96]  FM 条件向量
+            depth_latent: [B, 32]  深度隐变量 (复用，避免重复计算)
         """
-        # HIM 估计（冻结，无梯度）
         with torch.no_grad():
-            vel, him_z = self.him_estimator(obs_history)   # vel: [B,3], z: [B,16]
-
-        # Depth 编码（可训练，有梯度）
-        depth_latent = self.depth_encoder(depth_images)     # [B, 32]
-
-        obs_current = obs_history[:, :self.num_one_step_obs]  # [B, 45]
-
+            vel, him_z = self.him_estimator(obs_history)
+        depth_latent = self.depth_encoder(depth_images)
+        obs_current = obs_history[:, :self.num_one_step_obs]
         condition = torch.cat([obs_current, vel, him_z, depth_latent], dim=-1)
-        return condition   # [B, 96]
+        return condition, depth_latent
 
     @torch.no_grad()
     def get_teacher_action(
@@ -311,12 +310,9 @@ class HIMDistillModel(nn.Module):
         teacher_action = teacher_out['action']
         scandot_latent = teacher_out['scandot_latent']
 
-        # 学生 condition (包含 depth_latent 的计算图)
-        condition = self.get_student_condition(obs_history, depth_images)
-
-        # 单独获取 depth_latent 用于 latent_loss (get_student_condition 内部已算过,
-        # 但我们需要单独取出以计算与 scandot_latent 的 MSE)
-        depth_latent = self.depth_encoder(depth_images)
+        condition, depth_latent = self.get_student_condition(
+            obs_history, depth_images
+        )
 
         # ===== FM 扩散损失（主损失） =====
         fm_loss = self.fm_policy.compute_loss(teacher_action.unsqueeze(1), condition)
@@ -346,15 +342,19 @@ class HIMDistillModel(nn.Module):
     @torch.no_grad()
     def act_student(
         self,
-        obs_history: torch.Tensor,       # [1, 270]
-        depth_images: torch.Tensor,      # [1, 2, 58, 98]
+        obs_history: torch.Tensor,       # [B, 270]
+        depth_images: torch.Tensor,      # [B, 2, 58, 98]
         num_steps: int = None,
     ) -> torch.Tensor:
         """
-        学生推理: 输出单个关节动作。
+        学生推理: 输出关节动作。
+
+        Returns:
+            action: [B, 12] (B=1 时 [12])
         """
-        condition = self.get_student_condition(obs_history, depth_images)
-        return self.fm_policy.act_inference(condition, num_steps)
+        condition, _ = self.get_student_condition(obs_history, depth_images)
+        action_seq = self.fm_policy.sample(condition, num_steps)
+        return action_seq[:, 0, :]  # [B, 12] 取第一步
 
     def get_trainable_parameters(self):
         """返回学生可训练参数（给优化器）"""

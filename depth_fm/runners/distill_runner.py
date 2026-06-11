@@ -98,23 +98,28 @@ class DistillRunner:
             depth = self.env.extras.get('depth', None)         # [N, 2, 58, 98]
             scandots = self._get_scandots()                    # [N, 187]
 
-            # 学生推理
-            actions = torch.zeros(self.num_envs, self.num_actions, device=self.device)
-            for i in range(self.num_envs):
-                if depth is not None:
-                    actions[i] = self.model.act_student(
-                        obs_history[i:i+1], depth[i:i+1]
-                    )
-                else:
-                    # 盲态回退: Depth 未就绪时用零向量替代
-                    _, him_z = self.model.him_estimator(obs_history[i:i+1])
-                    dummy_cond = torch.cat([
-                        obs_history[i:i+1, :self.num_one_step_obs],
-                        torch.zeros(1, 3, device=self.device),
-                        him_z,
-                        torch.zeros(1, 32, device=self.device),
-                    ], dim=-1)
-                    actions[i] = self.model.fm_policy.act_inference(dummy_cond)
+            # 学生推理 (批量 — 避免逐 env 循环)
+            if depth is not None:
+                condition, _ = self.model.get_student_condition(
+                    obs_history, depth
+                )  # condition: [N, 96]
+                action_seq = self.model.fm_policy.sample(
+                    condition, num_steps=self.model.fm_policy.num_steps_infer
+                )  # [N, H, 12]
+                actions = action_seq[:, 0, :]  # 取第一步
+            else:
+                # 盲态回退 (深度未就绪)
+                _, him_z = self.model.him_estimator(obs_history)
+                dummy_cond = torch.cat([
+                    obs_history[:, :self.num_one_step_obs],
+                    torch.zeros(self.num_envs, 3, device=self.device),
+                    him_z,
+                    torch.zeros(self.num_envs, 32, device=self.device),
+                ], dim=-1)
+                action_seq = self.model.fm_policy.sample(
+                    dummy_cond, num_steps=self.model.fm_policy.num_steps_infer
+                )
+                actions = action_seq[:, 0, :]
 
             # 环境 step (HIMLoco 返回 7 个值)
             step_out = self.env.step(actions)
