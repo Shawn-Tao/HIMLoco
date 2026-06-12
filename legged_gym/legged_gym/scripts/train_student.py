@@ -181,7 +181,8 @@ def train_student(args, show_sim=False, show_depth=False):
         print(f"[Student] Resuming from {resume_path}")
         distill_algo.load_student(resume_path)
 
-    max_iter = train_cfg.runner.max_iterations
+    max_iter = args.max_iterations if args.max_iterations is not None else train_cfg.runner.max_iterations
+    print(f"[Student] Training for {max_iter} iterations")
     runner.learn(num_iterations=max_iter, init_at_random_ep_len=True)
 
     print(f"\n[Student Distillation] Complete at {datetime.now()}")

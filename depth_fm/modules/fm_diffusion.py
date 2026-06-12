@@ -160,7 +160,7 @@ class FiLMResBlock1D(nn.Module):
         self.skip = nn.Conv1d(in_channels, out_channels, 1) if in_channels != out_channels else nn.Identity()
         self.time_proj = nn.Linear(time_dim, out_channels)
         # 内部 FiLM projection: condition → per-channel γ, β
-        self.film_proj = nn.Linear(cond_dim, out_channels * 2)
+        self.film_proj = nn.Linear(time_dim, out_channels * 2)
 
     def forward(self, x, t_emb, condition):
         # FiLM params from condition

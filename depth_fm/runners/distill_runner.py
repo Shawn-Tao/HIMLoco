@@ -139,12 +139,18 @@ class DistillRunner:
                 done_val = dones[i].item() if isinstance(dones, torch.Tensor) else dones[i]
                 if done_val:
                     if 'episode' in infos:
-                        self.episode_rewards.append(
-                            infos['episode']['r'][i].item()
-                        )
-                        self.episode_lengths.append(
-                            infos['episode']['l'][i].item()
-                        )
+                        ep = infos['episode']
+                        if 'r' in ep and 'l' in ep:
+                            self.episode_rewards.append(ep['r'][i].item())
+                            self.episode_lengths.append(ep['l'][i].item())
+                        elif hasattr(self.env, 'episode_sums') and hasattr(self.env, 'episode_length_buf'):
+                            total = sum(
+                                v[i].item() for v in self.env.episode_sums.values()
+                            )
+                            self.episode_rewards.append(total)
+                            self.episode_lengths.append(
+                                self.env.episode_length_buf[i].item()
+                            )
 
     def learn(self, num_iterations: int, init_at_random_ep_len: bool = True):
         """蒸馏训练主循环"""
