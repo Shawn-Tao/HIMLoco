@@ -155,6 +155,9 @@ class HIMDistillModel(nn.Module):
             num_steps_infer=fm_num_steps_infer,
         )
 
+        # 将所有参数移到目标设备
+        self.to(device)
+
     def _load_teacher(self, ckpt_path: str):
         """
         加载 HIMLoco 预训练教师权重。
@@ -322,15 +325,16 @@ class HIMDistillModel(nn.Module):
         # ===== 隐空间对齐损失 =====
         latent_loss = F.mse_loss(depth_latent, scandot_latent.detach())
 
-        # ===== 行为克隆损失（可选） =====
-        student_action = self.fm_policy.sample(condition, num_steps=1)
-        action_loss = F.mse_loss(student_action.squeeze(1), teacher_action.detach())
+        # ===== 行为克隆损失（可选，默认关闭） =====
+        if self.action_loss_coef > 0:
+            student_action = self.fm_policy.sample(condition, num_steps=1)
+            action_loss = F.mse_loss(student_action.squeeze(1), teacher_action.detach())
+        else:
+            action_loss = torch.tensor(0.0, device=self.device)
 
         # ===== 总损失 =====
         total_loss = fm_loss + self.latent_loss_coef * latent_loss
-
-        if self.action_loss_coef > 0:
-            total_loss = total_loss + self.action_loss_coef * action_loss
+        total_loss = total_loss + self.action_loss_coef * action_loss
 
         return {
             'fm_loss': fm_loss,

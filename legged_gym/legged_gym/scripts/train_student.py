@@ -94,6 +94,9 @@ def train_student(args, show_sim=False, show_depth=False):
     # ================================================================
     # 1. 创建环境（带深度相机，但关闭仿真 viewer）
     # ================================================================
+    env_cfg, _ = task_registry.get_cfgs(args.task)
+    # 使用 plane 地形避免 trimesh 导致 GPU Pipeline 初始化卡死
+    env_cfg.terrain.mesh_type = 'plane'
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     _, train_cfg = task_registry.get_cfgs(args.task)
 

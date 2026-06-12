@@ -78,10 +78,13 @@ def patch_depth_camera(env, show_depth=False):
 
     # ===== 核心方法: 更新深度 buffer =====
     def update_depth_buffer():
-        if env.common_step_counter % depth_cfg.update_interval != 0:
+        # 在 step=1,6,11,.. 时更新（common_step_counter 在 post_physics_step 开头+1）
+        if (env.common_step_counter - 1) % depth_cfg.update_interval != 0:
             return
 
-        env.gym.step_graphics(env.sim)
+        # step_graphics 在 enable_tensors=True 且相机>384 时触发 Isaac Gym C++ 内存越界
+        # (Dimension out of range / uninitialized variable in GymStepGraphics)
+        # 跳过，只用 render_all_camera_sensors — 图形变换滞后一帧但无关紧要
         env.gym.render_all_camera_sensors(env.sim)
         env.gym.start_access_image_tensors(env.sim)
 
@@ -90,6 +93,8 @@ def patch_depth_camera(env, show_depth=False):
                 env.sim, env.envs[i], env.cam_handles[i], gymapi.IMAGE_DEPTH
             )
             depth = gymtorch.wrap_tensor(depth_ptr)
+            if depth is None or depth.numel() == 0:
+                continue  # 渲染尚未就绪
 
             # 预处理: 裁剪 + 裁剪深度值 + 归一化
             depth = depth[

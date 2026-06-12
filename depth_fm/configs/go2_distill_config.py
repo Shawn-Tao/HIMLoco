@@ -95,14 +95,14 @@ class GO2DistillCfgPPO(GO2RoughCfgPPO):
         clip_param = 0.2
         entropy_coef = 0.01
         num_learning_epochs = 5
-        num_mini_batches = 4
+        num_mini_batches = 64
         learning_rate = 1e-3
         max_grad_norm = 1.0
 
     class runner:
         policy_class_name = 'HIMDistillModel'
         algorithm_class_name = 'FMDistillation'
-        num_steps_per_env = 24    # 蒸馏用短 rollout (100 会导致深度 buffer OOM)
+        num_steps_per_env = 8     # 蒸馏用短 rollout
         max_iterations = 20000
 
         experiment_name = 'go2_distill'
@@ -156,4 +156,4 @@ class DistillModelCfg:
     latent_loss_coef = 0.1           # 隐空间对齐系数
     action_loss_coef = 0.0           # 行为克隆系数 (先用0，纯隐空间对齐)
     num_epochs_per_update = 5
-    num_mini_batches = 4
+    num_mini_batches = 64        # 2048×24=49152 样本, 每批~768 样本, 避免 OOM
