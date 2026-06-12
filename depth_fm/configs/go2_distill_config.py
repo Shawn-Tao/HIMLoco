@@ -147,8 +147,8 @@ class DistillModelCfg:
     # NOTE: 蒸馏阶段 H=1（单步动作蒸馏），后续 RL 微调时可用 H=10
     fm_horizon = 1
     fm_hidden_dim = 256
-    fm_num_steps_infer = 5          # 推理时欧拉步数
-    fm_num_steps_train = 5
+    fm_num_steps_infer = 5          # 推理时欧拉步数 (真机部署用)
+    fm_num_steps_rollout = 3        # rollout 采样步数 (少=快, 5=与部署一致)
 
     # Distillation
     learning_rate = 1e-3

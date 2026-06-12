@@ -98,15 +98,16 @@ class DistillRunner:
             depth = self.env.extras.get('depth', None)         # [N, 2, 58, 98]
             scandots = self._get_scandots()                    # [N, 187]
 
-            # 学生推理 (批量 — 避免逐 env 循环)
+            # 学生推理 (批量)
+            # rollout 用 K=2 快速采样 (不需要完整精度，只需保持机器人活着)
             if depth is not None:
                 condition, _ = self.model.get_student_condition(
                     obs_history, depth
-                )  # condition: [N, 96]
+                )
                 action_seq = self.model.fm_policy.sample(
-                    condition, num_steps=self.model.fm_policy.num_steps_infer
-                )  # [N, H, 12]
-                actions = action_seq[:, 0, :]  # 取第一步
+                    condition, num_steps=2
+                )
+                actions = action_seq[:, 0, :]
             else:
                 # 盲态回退 (深度未就绪)
                 _, him_z = self.model.him_estimator(obs_history)
@@ -117,7 +118,7 @@ class DistillRunner:
                     torch.zeros(self.num_envs, 32, device=self.device),
                 ], dim=-1)
                 action_seq = self.model.fm_policy.sample(
-                    dummy_cond, num_steps=self.model.fm_policy.num_steps_infer
+                    dummy_cond, num_steps=2
                 )
                 actions = action_seq[:, 0, :]
 
@@ -154,10 +155,14 @@ class DistillRunner:
 
     def learn(self, num_iterations: int, init_at_random_ep_len: bool = True):
         """蒸馏训练主循环"""
+        import time as _time
         if init_at_random_ep_len:
             self.env.reset()
 
+        t_start = _time.time()
         for it in range(num_iterations):
+            t_iter_start = _time.time()
+
             # 1. 收集 rollout
             self.collect_rollout()
 
@@ -168,17 +173,23 @@ class DistillRunner:
                 self.scandot_buf.flatten(0, 1),
             )
 
-            # 3. Log
-            if it % 10 == 0:
-                avg_r = np.mean(list(self.episode_rewards)) if self.episode_rewards else 0.0
-                avg_l = np.mean(list(self.episode_lengths)) if self.episode_lengths else 0.0
-                print(
-                    f"Iter {it:5d} | "
-                    f"FM:{metrics['fm_loss']:.4f} "
-                    f"Lat:{metrics['latent_loss']:.4f} "
-                    f"Tot:{metrics['total_loss']:.4f} | "
-                    f"Rew:{avg_r:.0f} Len:{avg_l:.0f}"
-                )
+            # 3. Log — 每 iter 打印，带时间估计
+            elapsed = _time.time() - t_start
+            iter_time = _time.time() - t_iter_start
+            remaining = num_iterations - it - 1
+            eta = iter_time * remaining  # 简单估计
+            avg_r = np.mean(list(self.episode_rewards)) if self.episode_rewards else 0.0
+            avg_l = np.mean(list(self.episode_lengths)) if self.episode_lengths else 0.0
+            print(
+                f"Iter {it:5d}/{num_iterations} | "
+                f"FM:{metrics['fm_loss']:.4f} "
+                f"Lat:{metrics['latent_loss']:.4f} "
+                f"Tot:{metrics['total_loss']:.4f} | "
+                f"Rew:{avg_r:.0f} Len:{avg_l:.0f} | "
+                f"{iter_time:.1f}s/it | "
+                f"elapsed {elapsed:.0f}s | "
+                f"ETA {eta:.0f}s"
+            )
 
             # 4. 保存
             if it % self.save_interval == 0 and it > 0:
