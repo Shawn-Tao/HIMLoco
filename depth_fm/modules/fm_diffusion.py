@@ -110,7 +110,7 @@ class VelocityField1D(nn.Module):
         B = a_t.shape[0]
 
         # Time embedding
-        t_emb = self.time_mlp(t.float().squeeze(-1))   # [B, hidden_dim]
+        t_emb = self.time_mlp(t.float())   # [B, hidden_dim]
 
         # Condition embedding
         cond_emb = self.cond_proj(condition)            # [B, hidden_dim]

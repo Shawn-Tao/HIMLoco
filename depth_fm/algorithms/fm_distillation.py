@@ -155,10 +155,11 @@ class FMDistillation:
                 if k != 'total_loss'}
 
     def save(self, path: str):
-        """保存学生权重"""
+        """保存学生权重 (含 HIM 估计器，play 时无需单独加载教师)"""
         torch.save({
             'depth_encoder': self.model.depth_encoder.state_dict(),
             'fm_policy': self.model.fm_policy.state_dict(),
+            'him_estimator': self.model.him_estimator.state_dict(),
             'optimizer': self.optimizer.state_dict(),
             'global_step': self.global_step,
         }, path)
@@ -169,6 +170,8 @@ class FMDistillation:
         ckpt = torch.load(path, map_location=self.device)
         self.model.depth_encoder.load_state_dict(ckpt['depth_encoder'])
         self.model.fm_policy.load_state_dict(ckpt['fm_policy'])
+        if 'him_estimator' in ckpt:
+            self.model.him_estimator.load_state_dict(ckpt['him_estimator'])
         if 'optimizer' in ckpt:
             self.optimizer.load_state_dict(ckpt['optimizer'])
         if 'global_step' in ckpt:
